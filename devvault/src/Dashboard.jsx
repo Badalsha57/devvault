@@ -9,17 +9,20 @@ function Dashboard() {
   const [newResource, setNewResource] = useState({ title: '', type: 'PDF', desc: '', link: '' });
   const navigate = useNavigate();
 
+  // --- AAPKA RENDER BACKEND URL ---
+  const API_URL = "https://devvault-backend-5mjy.onrender.com";
+
   // --- LOGOUT FUNCTION ---
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
-    window.location.reload(); // Page refresh karke App.jsx ko login par bhejne ke liye
+    window.location.reload(); 
   };
 
   // 1. Database se Data Fetch karna
   const fetchResources = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/resources');
+      const res = await fetch(`${API_URL}/api/resources`);
       const data = await res.json();
       setAllResources(data);
     } catch (err) {
@@ -39,7 +42,7 @@ function Dashboard() {
     formData.append('title', newResource.title);
     formData.append('type', newResource.type);
     formData.append('desc', newResource.desc);
-    formData.append('ownerId', localStorage.getItem('userId')); // Login user ki ID
+    formData.append('ownerId', localStorage.getItem('userId'));
 
     let finalLink = newResource.link.trim();
     if (finalLink && !finalLink.startsWith('http')) {
@@ -52,7 +55,7 @@ function Dashboard() {
     }
 
     try {
-      const res = await fetch('http://localhost:5000/api/add', {
+      const res = await fetch(`${API_URL}/api/add`, {
         method: 'POST',
         body: formData 
       });
@@ -73,7 +76,7 @@ function Dashboard() {
     e.stopPropagation();
     if (window.confirm("Kya aap ise delete karna chahte hain?")) {
       try {
-        const res = await fetch(`http://localhost:5000/api/delete/${id}`, {
+        const res = await fetch(`${API_URL}/api/delete/${id}`, {
           method: 'DELETE'
         });
         if (res.ok) fetchResources();

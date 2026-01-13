@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
-// 1. Yahan props mein { onLogin } add kiya gaya hai
 function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
+  // --- AAPKA RENDER BACKEND URL ---
+  const API_URL = "https://devvault-backend-5mjy.onrender.com";
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
+      // localhost ki jagah API_URL use kiya hai
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -18,12 +21,9 @@ function Login({ onLogin }) {
       const data = await res.json();
 
       if (res.ok) {
-        // Data save karna
         localStorage.setItem('token', data.token);
         localStorage.setItem('userId', data.user.id);
         
-        // 2. YE LINE SABSE IMPORTANT HAI:
-        // Yeh App.jsx ko batayega ki token aa gaya hai, screen refresh karo
         if (onLogin) onLogin(); 
         
         alert("Login Successful! 🚀");
