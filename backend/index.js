@@ -33,8 +33,8 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'devvault_uploads',
-    // ⚠️ Is line ko dhyan se dekhein
-    resource_type: 'auto', 
+    resource_type: 'auto', // ✅ Yeh 'auto' hona bahut zaroori hai
+    format: async (req, file) => 'pdf', // Force format to PDF
   },
 });
 
