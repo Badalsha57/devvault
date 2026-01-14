@@ -24,7 +24,7 @@ app.use(cors({ origin: "*" })); // Sabhi origins ko allow karne ke liye
     cloudinary.config({ 
         cloud_name: 'driligjum', 
         api_key: '376478439948935', 
-        api_secret: '**********' // Click 'View API Keys' above to copy your API secret
+        api_secret: 'b7XNHZNk0NLeKoIDkAOcYtgow2s' // Click 'View API Keys' above to copy your API secret
     });
     
 
