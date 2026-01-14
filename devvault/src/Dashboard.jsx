@@ -12,19 +12,27 @@ function Dashboard() {
 
   const API_URL = "https://devvault-backend-5mjy.onrender.com";
 
+  // --- HELPER: Token lene ke liye ---
   const getAuthHeader = () => {
     const token = localStorage.getItem('token');
     return { 'Authorization': `Bearer ${token}` };
   };
 
-  const openResource = (item) => {
-    if (item.link) {
-      // Direct link open logic
-      window.open(item.link, "_blank", "noopener,noreferrer");
-    } else {
-      alert("No link available.");
+const openResource = (item) => {
+  if (item.link) {
+    let finalLink = item.link;
+
+    // Agar link mein 'image/upload' hai toh use 'raw/upload' ya extension check karein
+    // Cloudinary force download/view ke liye ye hack kaam karta hai:
+    if (finalLink.includes("cloudinary.com") && !finalLink.endsWith(".pdf")) {
+      finalLink = finalLink + ".pdf"; 
     }
-  };
+
+    window.open(finalLink, "_blank");
+  } else {
+    alert("No link available.");
+  }
+};
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -33,15 +41,18 @@ function Dashboard() {
     window.location.reload(); 
   };
 
+  // 1. Data Fetch with Token
   const fetchResources = async () => {
     try {
       const res = await fetch(`${API_URL}/api/resources`, {
         headers: getAuthHeader()
       });
+
       if (res.status === 401) {
         navigate('/login');
         return;
       }
+
       const data = await res.json();
       setAllResources(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -53,6 +64,7 @@ function Dashboard() {
     fetchResources();
   }, []);
 
+  // 2. Save Data with Token
   const handleAddResource = async (e) => {
     e.preventDefault();
     setLoading(true); 
@@ -64,7 +76,7 @@ function Dashboard() {
     formData.append('ownerId', localStorage.getItem('userId'));
 
     if (file) {
-      formData.append('pdfFile', file); // Multer isse 'pdfFile' name se receive karega
+      formData.append('pdfFile', file);
     } else {
       let finalLink = newResource.link.trim();
       if (finalLink && !finalLink.startsWith('http')) {
@@ -76,7 +88,7 @@ function Dashboard() {
     try {
       const res = await fetch(`${API_URL}/api/add`, {
         method: 'POST',
-        headers: getAuthHeader(),
+        headers: getAuthHeader(), // Token sent here
         body: formData 
       });
 
@@ -86,8 +98,11 @@ function Dashboard() {
         setFile(null);
         fetchResources(); 
         alert("Saved Successfully!");
+      } else if (res.status === 401) {
+        alert("Session expired. Please login again.");
+        navigate('/login');
       } else {
-        alert("Failed to save. Check if backend is using 'auto' resource_type.");
+        alert("Failed to save. Check backend logs.");
       }
     } catch (err) {
       console.error("Save error:", err);
@@ -96,15 +111,17 @@ function Dashboard() {
     }
   };
 
+  // 3. Delete Data with Token
   const handleDelete = async (e, id) => {
     e.stopPropagation();
-    if (window.confirm("Delete this resource?")) {
+    if (window.confirm("Kya aap ise delete karna chahte hain?")) {
       try {
         const res = await fetch(`${API_URL}/api/delete/${id}`, {
           method: 'DELETE',
-          headers: getAuthHeader()
+          headers: getAuthHeader() // Token sent here
         });
         if (res.ok) fetchResources();
+        else if (res.status === 401) navigate('/login');
       } catch (err) {
         console.error("Delete error:", err);
       }
@@ -133,7 +150,7 @@ function Dashboard() {
         
         <div className="w-full max-w-2xl bg-slate-900/50 border border-slate-800 p-2 rounded-2xl flex items-center mb-16 shadow-2xl focus-within:border-blue-500/50 transition-all">
           <span className="pl-4 text-slate-500">🔍</span>
-          <input type="text" placeholder="Search..." className="w-full bg-transparent p-4 outline-none text-lg text-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <input type="text" placeholder="Search notes, links, or code..." className="w-full bg-transparent p-4 outline-none text-lg text-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
@@ -165,22 +182,22 @@ function Dashboard() {
               </div>
               <div className="space-y-2">
                 <label className="text-xs text-slate-500 font-bold uppercase">Option 1: Paste Link</label>
-                <input placeholder="https://..." className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl outline-none focus:border-blue-500 text-white" value={newResource.link} onChange={(e) => setNewResource({...newResource, link: e.target.value})} />
+                <input placeholder="https://google-drive-link.com" className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl outline-none focus:border-blue-500 text-white" value={newResource.link} onChange={(e) => setNewResource({...newResource, link: e.target.value})} />
               </div>
               <div className="py-2 flex items-center gap-4">
                 <div className="flex-1 h-[1px] bg-slate-800"></div><span className="text-xs text-slate-600 font-bold">OR</span><div className="flex-1 h-[1px] bg-slate-800"></div>
               </div>
               <div className="space-y-2">
                 <label className="text-xs text-slate-500 font-bold uppercase">Option 2: Upload PDF</label>
-                <input type="file" accept=".pdf" className="w-full text-sm text-slate-400 cursor-pointer" onChange={(e) => setFile(e.target.files[0])} />
+                <input type="file" accept=".pdf" className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer" onChange={(e) => setFile(e.target.files[0])} />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Description</label>
-                <textarea className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl h-20 resize-none text-white" value={newResource.desc} onChange={(e) => setNewResource({...newResource, desc: e.target.value})}></textarea>
+                <textarea className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl outline-none focus:border-blue-500 h-20 resize-none text-white" value={newResource.desc} onChange={(e) => setNewResource({...newResource, desc: e.target.value})}></textarea>
               </div>
               <div className="flex space-x-3 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold">Cancel</button>
-                <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold">{loading ? "Uploading..." : "Save Now"}</button>
+                <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 shadow-lg shadow-blue-500/20">{loading ? "Uploading..." : "Save Now"}</button>
               </div>
             </form>
           </div>
