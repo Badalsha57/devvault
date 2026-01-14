@@ -29,16 +29,12 @@ app.use(cors({ origin: "*" })); // Sabhi origins ko allow karne ke liye
     
 
 // --- CLOUDINARY STORAGE SETUP ---
-// --- CLOUDINARY STORAGE SETUP ---
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'devvault_uploads',
-    // 'auto' ki jagah specific types batana behtar hai
-    resource_type: 'raw', 
-    flags: 'attachment',
-    // Isse file original format (PDF) mein hi save hogi
-    public_id: (req, file) => Date.now() + '-' + file.originalname.split('.')[0],
+    // ⚠️ Is line ko dhyan se dekhein
+    resource_type: 'auto', 
   },
 });
 
