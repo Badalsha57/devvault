@@ -18,13 +18,21 @@ function Dashboard() {
     return { 'Authorization': `Bearer ${token}` };
   };
 
-  const openResource = (item) => {
-    if (item.link) {
-      window.open(item.link, "_blank");
-    } else {
-      alert("No link available for this resource.");
+const openResource = (item) => {
+  if (item.link) {
+    let finalLink = item.link;
+
+    // Agar link mein 'image/upload' hai toh use 'raw/upload' ya extension check karein
+    // Cloudinary force download/view ke liye ye hack kaam karta hai:
+    if (finalLink.includes("cloudinary.com") && !finalLink.endsWith(".pdf")) {
+      finalLink = finalLink + ".pdf"; 
     }
-  };
+
+    window.open(finalLink, "_blank");
+  } else {
+    alert("No link available.");
+  }
+};
 
   const handleLogout = () => {
     localStorage.removeItem('token');
