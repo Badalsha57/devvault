@@ -12,10 +12,23 @@ function Dashboard() {
   // --- AAPKA RENDER BACKEND URL ---
   const API_URL = "https://devvault-backend-5mjy.onrender.com";
 
+  // --- HELPER: Resource Open karne ke liye ---
+  const openResource = (item) => {
+    if (item.link) {
+      // ✅ Agar link "http" se start nahi hota, toh ise uploads folder ka file maanein
+      const finalUrl = item.link.startsWith('http') 
+        ? item.link 
+        : `${API_URL}/uploads/${item.link}`;
+      
+      window.open(finalUrl, "_blank");
+    }
+  };
+
   // --- LOGOUT FUNCTION ---
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('userId');
+    navigate('/login'); // Redirect to login
     window.location.reload(); 
   };
 
@@ -73,7 +86,7 @@ function Dashboard() {
 
   // 3. Data Delete karna
   const handleDelete = async (e, id) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Card click event ko rokne ke liye
     if (window.confirm("Kya aap ise delete karna chahte hain?")) {
       try {
         const res = await fetch(`${API_URL}/api/delete/${id}`, {
@@ -137,7 +150,7 @@ function Dashboard() {
           filteredResources.map((item) => (
             <div 
               key={item._id} 
-              onClick={() => item.link && window.open(item.link, "_blank")}
+              onClick={() => openResource(item)} // ✅ Updated click handler
               className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 hover:border-blue-500/40 transition-all cursor-pointer group relative hover:-translate-y-1 shadow-lg"
             >
               <button 
