@@ -12,31 +12,48 @@ function Dashboard() {
 
   const API_URL = "https://devvault-backend-5mjy.onrender.com";
 
-  // --- HELPER: Token lene ke liye ---
+  // --- HELPER: Auth Header ---
   const getAuthHeader = () => {
     const token = localStorage.getItem('token');
-    return { 'Authorization': `Bearer ${token}` };
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
   };
 
-const openResource = (item) => {
-  if (item.link) {
-    let finalLink = item.link;
-
-    // Agar link mein 'image/upload' hai toh use 'raw/upload' ya extension check karein
-    // Cloudinary force download/view ke liye ye hack kaam karta hai:
-    if (finalLink.includes("cloudinary.com") && !finalLink.endsWith(".pdf")) {
-      finalLink = finalLink + ".pdf"; 
+  // --- FIX: 401 Error solve karne ke liye Fetch method ---
+  const openResource = async (item) => {
+    if (!item.link) {
+      alert("No link available.");
+      return;
     }
 
-    window.open(finalLink, "_blank");
-  } else {
-    alert("No link available.");
-  }
-};
+    try {
+      // Agar link protected hai toh pehle fetch karke check karenge
+      const response = await fetch(item.link, {
+        method: 'GET',
+        headers: getAuthHeader(), // Token yahan se jayega
+      });
+
+      if (response.status === 401) {
+        alert("Session expired ya unauthorized! Dobara login karein.");
+        handleLogout();
+        return;
+      }
+
+      if (!response.ok) throw new Error("File load nahi ho rahi");
+
+      // File ko browser mein dikhane ke liye Blob URL banayein
+      const blob = await response.blob();
+      const fileURL = URL.createObjectURL(blob);
+      window.open(fileURL, "_blank");
+
+    } catch (err) {
+      console.log("Direct opening try kar rahe hain...");
+      // Agar fetch fail ho toh direct kholne ki koshish (Public files ke liye)
+      window.open(item.link, "_blank");
+    }
+  };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
+    localStorage.clear(); // Saara data clear karein
     navigate('/login');
     window.location.reload(); 
   };
@@ -49,7 +66,7 @@ const openResource = (item) => {
       });
 
       if (res.status === 401) {
-        navigate('/login');
+        handleLogout();
         return;
       }
 
@@ -64,7 +81,7 @@ const openResource = (item) => {
     fetchResources();
   }, []);
 
-  // 2. Save Data with Token
+  // 2. Save Data (Optimized for FormData)
   const handleAddResource = async (e) => {
     e.preventDefault();
     setLoading(true); 
@@ -77,18 +94,16 @@ const openResource = (item) => {
 
     if (file) {
       formData.append('pdfFile', file);
-    } else {
+    } else if (newResource.link) {
       let finalLink = newResource.link.trim();
-      if (finalLink && !finalLink.startsWith('http')) {
-        finalLink = 'https://' + finalLink;
-      }
+      if (!finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
       formData.append('link', finalLink);
     }
 
     try {
       const res = await fetch(`${API_URL}/api/add`, {
         method: 'POST',
-        headers: getAuthHeader(), // Token sent here
+        headers: getAuthHeader(), // Browser automically sets Content-Type for FormData
         body: formData 
       });
 
@@ -100,7 +115,7 @@ const openResource = (item) => {
         alert("Saved Successfully!");
       } else if (res.status === 401) {
         alert("Session expired. Please login again.");
-        navigate('/login');
+        handleLogout();
       } else {
         alert("Failed to save. Check backend logs.");
       }
@@ -111,17 +126,17 @@ const openResource = (item) => {
     }
   };
 
-  // 3. Delete Data with Token
+  // 3. Delete Data
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (window.confirm("Kya aap ise delete karna chahte hain?")) {
       try {
         const res = await fetch(`${API_URL}/api/delete/${id}`, {
           method: 'DELETE',
-          headers: getAuthHeader() // Token sent here
+          headers: getAuthHeader()
         });
         if (res.ok) fetchResources();
-        else if (res.status === 401) navigate('/login');
+        else if (res.status === 401) handleLogout();
       } catch (err) {
         console.error("Delete error:", err);
       }
@@ -142,6 +157,7 @@ const openResource = (item) => {
         </div>
       </nav>
 
+      {/* Main Content */}
       <div className="flex flex-col items-center pt-16 pb-10 px-4">
         <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-center mb-6 leading-tight">
           Manage Your <br />
@@ -154,6 +170,7 @@ const openResource = (item) => {
         </div>
       </div>
 
+      {/* Resources Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-6 md:px-10 pb-20 max-w-7xl mx-auto">
         {filteredResources.map((item) => (
           <div key={item._id} onClick={() => openResource(item)} className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 hover:border-blue-500/40 transition-all cursor-pointer group relative hover:-translate-y-1 shadow-lg">
@@ -165,12 +182,13 @@ const openResource = (item) => {
             <h3 className="text-xl font-bold mb-2 group-hover:text-blue-400 transition-colors line-clamp-1 uppercase tracking-tight">{item.title}</h3>
             <p className="text-slate-400 text-sm mb-6 line-clamp-2 h-10 leading-relaxed">{item.desc || "No description provided."}</p>
             <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-              <span className="text-blue-500 text-[11px] font-bold tracking-wider">{item.link ? "VIEW DOCUMENT ↗" : "NO FILE ATTACHED"}</span>
+              <span className="text-blue-500 text-[11px] font-bold tracking-wider uppercase">{item.link || file ? "VIEW DOCUMENT ↗" : "NO FILE ATTACHED"}</span>
             </div>
           </div>
         ))}
       </div>
 
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
           <div className="bg-[#0f172a] border border-slate-800 p-8 rounded-3xl w-full max-w-md shadow-2xl">
