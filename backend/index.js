@@ -29,14 +29,19 @@ app.use(cors({ origin: "*" })); // Sabhi origins ko allow karne ke liye
     
 
 // --- CLOUDINARY STORAGE SETUP ---
+// --- CLOUDINARY STORAGE SETUP ---
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'devvault_uploads',
-    allowed_formats: ['pdf', 'jpg', 'png', 'jpeg'],
-    resource_type: 'auto' // Isse PDF aur Images dono handle honge
+    // 'auto' ki jagah specific types batana behtar hai
+    resource_type: 'raw', 
+    flags: 'attachment',
+    // Isse file original format (PDF) mein hi save hogi
+    public_id: (req, file) => Date.now() + '-' + file.originalname.split('.')[0],
   },
 });
+
 const upload = multer({ storage: storage });
 
 // --- DATABASE CONNECTION ---
