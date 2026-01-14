@@ -5,60 +5,32 @@ function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [allResources, setAllResources] = useState([]); 
   const [showModal, setShowModal] = useState(false); 
-  const [file, setFile] = useState(null); 
-  const [newResource, setNewResource] = useState({ title: '', type: 'PDF', desc: '', link: '' });
+  const [newResource, setNewResource] = useState({ title: '', type: 'LINK', desc: '', link: '' });
   const [loading, setLoading] = useState(false); 
   const navigate = useNavigate();
 
   const API_URL = "https://devvault-backend-5mjy.onrender.com";
 
-  // --- HELPER: Auth Header ---
   const getAuthHeader = () => {
     const token = localStorage.getItem('token');
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
+    return { 'Authorization': `Bearer ${token}` };
   };
 
-  // --- FIX: 401 Error solve karne ke liye Fetch method ---
-  const openResource = async (item) => {
-    if (!item.link) {
-      alert("No link available.");
-      return;
-    }
-
-    try {
-      // Agar link protected hai toh pehle fetch karke check karenge
-      const response = await fetch(item.link, {
-        method: 'GET',
-        headers: getAuthHeader(), // Token yahan se jayega
-      });
-
-      if (response.status === 401) {
-        alert("Session expired ya unauthorized! Dobara login karein.");
-        handleLogout();
-        return;
-      }
-
-      if (!response.ok) throw new Error("File load nahi ho rahi");
-
-      // File ko browser mein dikhane ke liye Blob URL banayein
-      const blob = await response.blob();
-      const fileURL = URL.createObjectURL(blob);
-      window.open(fileURL, "_blank");
-
-    } catch (err) {
-      console.log("Direct opening try kar rahe hain...");
-      // Agar fetch fail ho toh direct kholne ki koshish (Public files ke liye)
+  const openResource = (item) => {
+    if (item.link) {
       window.open(item.link, "_blank");
+    } else {
+      alert("No link available.");
     }
   };
 
   const handleLogout = () => {
-    localStorage.clear(); // Saara data clear karein
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
     navigate('/login');
     window.location.reload(); 
   };
 
-  // 1. Data Fetch with Token
   const fetchResources = async () => {
     try {
       const res = await fetch(`${API_URL}/api/resources`, {
@@ -66,7 +38,7 @@ function Dashboard() {
       });
 
       if (res.status === 401) {
-        handleLogout();
+        navigate('/login');
         return;
       }
 
@@ -81,43 +53,43 @@ function Dashboard() {
     fetchResources();
   }, []);
 
-  // 2. Save Data (Optimized for FormData)
   const handleAddResource = async (e) => {
     e.preventDefault();
     setLoading(true); 
     
-    const formData = new FormData();
-    formData.append('title', newResource.title);
-    formData.append('type', newResource.type);
-    formData.append('desc', newResource.desc);
-    formData.append('ownerId', localStorage.getItem('userId'));
-
-    if (file) {
-      formData.append('pdfFile', file);
-    } else if (newResource.link) {
-      let finalLink = newResource.link.trim();
-      if (!finalLink.startsWith('http')) finalLink = 'https://' + finalLink;
-      formData.append('link', finalLink);
+    let finalLink = newResource.link.trim();
+    if (finalLink && !finalLink.startsWith('http')) {
+      finalLink = 'https://' + finalLink;
     }
+
+    const payload = {
+      title: newResource.title,
+      type: 'LINK',
+      desc: newResource.desc,
+      link: finalLink,
+      ownerId: localStorage.getItem('userId')
+    };
 
     try {
       const res = await fetch(`${API_URL}/api/add`, {
         method: 'POST',
-        headers: getAuthHeader(), // Browser automically sets Content-Type for FormData
-        body: formData 
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload) 
       });
 
       if (res.ok) {
         setShowModal(false);
-        setNewResource({ title: '', type: 'PDF', desc: '', link: '' });
-        setFile(null);
+        setNewResource({ title: '', type: 'LINK', desc: '', link: '' });
         fetchResources(); 
         alert("Saved Successfully!");
       } else if (res.status === 401) {
         alert("Session expired. Please login again.");
-        handleLogout();
+        navigate('/login');
       } else {
-        alert("Failed to save. Check backend logs.");
+        alert("Failed to save.");
       }
     } catch (err) {
       console.error("Save error:", err);
@@ -126,7 +98,6 @@ function Dashboard() {
     }
   };
 
-  // 3. Delete Data
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (window.confirm("Kya aap ise delete karna chahte hain?")) {
@@ -136,7 +107,7 @@ function Dashboard() {
           headers: getAuthHeader()
         });
         if (res.ok) fetchResources();
-        else if (res.status === 401) handleLogout();
+        else if (res.status === 401) navigate('/login');
       } catch (err) {
         console.error("Delete error:", err);
       }
@@ -150,14 +121,13 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-[#020617] text-white font-sans selection:bg-blue-500/30">
       <nav className="flex justify-between items-center px-6 md:px-10 py-5 border-b border-slate-800 bg-slate-950/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="text-2xl font-black text-blue-500 tracking-tighter cursor-pointer italic">DEVVAULT</div>
+        <div className="text-2xl font-black text-blue-500 tracking-tighter cursor-pointer italic uppercase">DEVVAULT</div>
         <div className="flex items-center gap-4">
           <button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-xl font-bold transition-all shadow-lg shadow-blue-500/20 text-sm active:scale-95">+ Add Resource</button>
           <button onClick={handleLogout} className="bg-red-500/10 text-red-500 border border-red-500/20 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-500 hover:text-white transition-all">Logout</button>
         </div>
       </nav>
 
-      {/* Main Content */}
       <div className="flex flex-col items-center pt-16 pb-10 px-4">
         <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-center mb-6 leading-tight">
           Manage Your <br />
@@ -166,48 +136,39 @@ function Dashboard() {
         
         <div className="w-full max-w-2xl bg-slate-900/50 border border-slate-800 p-2 rounded-2xl flex items-center mb-16 shadow-2xl focus-within:border-blue-500/50 transition-all">
           <span className="pl-4 text-slate-500">🔍</span>
-          <input type="text" placeholder="Search notes, links, or code..." className="w-full bg-transparent p-4 outline-none text-lg text-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <input type="text" placeholder="Search resources..." className="w-full bg-transparent p-4 outline-none text-lg text-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
-      {/* Resources Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-6 md:px-10 pb-20 max-w-7xl mx-auto">
         {filteredResources.map((item) => (
           <div key={item._id} onClick={() => openResource(item)} className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800 hover:border-blue-500/40 transition-all cursor-pointer group relative hover:-translate-y-1 shadow-lg">
             <button onClick={(e) => handleDelete(e, item._id)} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-500 transition-all p-2 z-10 bg-slate-800 rounded-lg">🗑️</button>
             <div className="flex justify-between items-start mb-4">
-              <div className={`px-3 py-1 rounded-md text-[10px] font-bold tracking-widest uppercase ${item.type === 'PDF' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>{item.type}</div>
-              <span className="text-2xl">{item.type === 'PDF' ? '📄' : '💻'}</span>
+              <div className="px-3 py-1 rounded-md text-[10px] font-bold tracking-widest uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">LINK</div>
+              <span className="text-2xl">🔗</span>
             </div>
             <h3 className="text-xl font-bold mb-2 group-hover:text-blue-400 transition-colors line-clamp-1 uppercase tracking-tight">{item.title}</h3>
             <p className="text-slate-400 text-sm mb-6 line-clamp-2 h-10 leading-relaxed">{item.desc || "No description provided."}</p>
             <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-              <span className="text-blue-500 text-[11px] font-bold tracking-wider uppercase">{item.link || file ? "VIEW DOCUMENT ↗" : "NO FILE ATTACHED"}</span>
+              <span className="text-blue-500 text-[11px] font-bold tracking-wider">OPEN LINK ↗</span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[100] p-4">
           <div className="bg-[#0f172a] border border-slate-800 p-8 rounded-3xl w-full max-w-md shadow-2xl">
-            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><span className="text-blue-500">📥</span> Add to Vault</h2>
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><span className="text-blue-500">🔗</span> Add Resource</h2>
             <form onSubmit={handleAddResource} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Title</label>
                 <input required className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl outline-none focus:border-blue-500 text-white" value={newResource.title} onChange={(e) => setNewResource({...newResource, title: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <label className="text-xs text-slate-500 font-bold uppercase">Option 1: Paste Link</label>
-                <input placeholder="https://google-drive-link.com" className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl outline-none focus:border-blue-500 text-white" value={newResource.link} onChange={(e) => setNewResource({...newResource, link: e.target.value})} />
-              </div>
-              <div className="py-2 flex items-center gap-4">
-                <div className="flex-1 h-[1px] bg-slate-800"></div><span className="text-xs text-slate-600 font-bold">OR</span><div className="flex-1 h-[1px] bg-slate-800"></div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs text-slate-500 font-bold uppercase">Option 2: Upload PDF</label>
-                <input type="file" accept=".pdf" className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer" onChange={(e) => setFile(e.target.files[0])} />
+                <label className="text-xs text-slate-500 font-bold uppercase">Resource Link</label>
+                <input required placeholder="https://example.com" className="w-full bg-slate-950 border border-slate-800 p-3 rounded-xl outline-none focus:border-blue-500 text-white" value={newResource.link} onChange={(e) => setNewResource({...newResource, link: e.target.value})} />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1 block uppercase">Description</label>
@@ -215,7 +176,7 @@ function Dashboard() {
               </div>
               <div className="flex space-x-3 pt-4">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 bg-slate-800 rounded-xl font-bold">Cancel</button>
-                <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 shadow-lg shadow-blue-500/20">{loading ? "Uploading..." : "Save Now"}</button>
+                <button type="submit" disabled={loading} className="flex-1 py-3 bg-blue-600 rounded-xl font-bold hover:bg-blue-500 shadow-lg shadow-blue-500/20">{loading ? "Saving..." : "Save Now"}</button>
               </div>
             </form>
           </div>
