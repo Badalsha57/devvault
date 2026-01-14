@@ -7,15 +7,19 @@ function Dashboard() {
   const [showModal, setShowModal] = useState(false); 
   const [file, setFile] = useState(null); 
   const [newResource, setNewResource] = useState({ title: '', type: 'PDF', desc: '', link: '' });
-  const [loading, setLoading] = useState(false); // Loading state add ki
+  const [loading, setLoading] = useState(false); 
   const navigate = useNavigate();
 
   const API_URL = "https://devvault-backend-5mjy.onrender.com";
 
-  // --- FIX: Resource Open karne ka logic ---
+  // --- HELPER: Token lene ke liye ---
+  const getAuthHeader = () => {
+    const token = localStorage.getItem('token');
+    return { 'Authorization': `Bearer ${token}` };
+  };
+
   const openResource = (item) => {
     if (item.link) {
-      // Cloudinary hamesha poora link deta hai, isliye hum seedha window.open use karenge
       window.open(item.link, "_blank");
     } else {
       alert("No link available for this resource.");
@@ -29,11 +33,20 @@ function Dashboard() {
     window.location.reload(); 
   };
 
+  // 1. Data Fetch with Token
   const fetchResources = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/resources`);
+      const res = await fetch(`${API_URL}/api/resources`, {
+        headers: getAuthHeader()
+      });
+
+      if (res.status === 401) {
+        navigate('/login');
+        return;
+      }
+
       const data = await res.json();
-      setAllResources(data);
+      setAllResources(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Data fetch error:", err);
     }
@@ -43,10 +56,10 @@ function Dashboard() {
     fetchResources();
   }, []);
 
-  // --- FIX: Naya Data Save karna (Cloudinary support ke sath) ---
+  // 2. Save Data with Token
   const handleAddResource = async (e) => {
     e.preventDefault();
-    setLoading(true); // Button ko disable karne ke liye
+    setLoading(true); 
     
     const formData = new FormData();
     formData.append('title', newResource.title);
@@ -54,7 +67,6 @@ function Dashboard() {
     formData.append('desc', newResource.desc);
     formData.append('ownerId', localStorage.getItem('userId'));
 
-    // Agar file hai toh use append karein, nahi toh link ko
     if (file) {
       formData.append('pdfFile', file);
     } else {
@@ -68,6 +80,7 @@ function Dashboard() {
     try {
       const res = await fetch(`${API_URL}/api/add`, {
         method: 'POST',
+        headers: getAuthHeader(), // Token sent here
         body: formData 
       });
 
@@ -76,26 +89,31 @@ function Dashboard() {
         setNewResource({ title: '', type: 'PDF', desc: '', link: '' });
         setFile(null);
         fetchResources(); 
-        alert("Saved to Cloudinary Successfully!");
+        alert("Saved Successfully!");
+      } else if (res.status === 401) {
+        alert("Session expired. Please login again.");
+        navigate('/login');
       } else {
         alert("Failed to save. Check backend logs.");
       }
     } catch (err) {
       console.error("Save error:", err);
-      alert("Error: Server not reachable.");
     } finally {
       setLoading(false);
     }
   };
 
+  // 3. Delete Data with Token
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (window.confirm("Kya aap ise delete karna chahte hain?")) {
       try {
         const res = await fetch(`${API_URL}/api/delete/${id}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: getAuthHeader() // Token sent here
         });
         if (res.ok) fetchResources();
+        else if (res.status === 401) navigate('/login');
       } catch (err) {
         console.error("Delete error:", err);
       }
@@ -103,7 +121,7 @@ function Dashboard() {
   };
 
   const filteredResources = allResources.filter(item => 
-    item.title.toLowerCase().includes(searchTerm.toLowerCase())
+    item.title?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

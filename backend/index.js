@@ -88,11 +88,14 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // --- RESOURCE ROUTES ---
+// Is line mein koi extra middleware nahi hona chahiye
 app.get('/api/resources', async (req, res) => {
     try {
         const resources = await Resource.find().populate('owner', 'email');
         res.json(resources);
-    } catch (err) { res.status(500).json({ error: "Data fetch error" }); }
+    } catch (err) {
+        res.status(500).json({ error: "Data fetch error" });
+    }
 });
 
 // 🚀 ADD NEW RESOURCE (Cloudinary Support)
