@@ -16,15 +16,13 @@ const PORT = process.env.PORT || 5000;
 
 // --- MIDDLEWARES ---
 app.use(express.json());
-app.use(cors({ origin: "*" })); // Sabhi origins ko allow karne ke liye
+app.use(cors({ origin: "*" })); 
 
 // --- CLOUDINARY CONFIG ---
-// ⚠️ Yahan apni details Cloudinary Dashboard se dekh kar bhariye
-// Configuration
     cloudinary.config({ 
         cloud_name: 'driligjum', 
         api_key: '376478439948935', 
-        api_secret: 'b7XNHZNk0NLeKoIDkAOcYtgow2s' // Click 'View API Keys' above to copy your API secret
+        api_secret: 'b7XNHZNk0NLeKoIDkAOcYtgow2s' 
     });
     
 
@@ -33,8 +31,8 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'devvault_uploads',
-    resource_type: 'auto', // ✅ Yeh 'auto' hona bahut zaroori hai
-    format: async (req, file) => 'pdf', // Force format to PDF
+    resource_type: 'auto', 
+    format: async (req, file) => 'pdf', 
   },
 });
 
@@ -45,7 +43,7 @@ const MONGO_URI = "mongodb+srv://BabuLohar123:babulohar123@cluster0.codhw2z.mong
 const JWT_SECRET = "MERA_SECRET_KEY_123"; 
 
 mongoose.connect(MONGO_URI)
-  .then(() => console.log("MongoDB connected! 💾"))
+  .then(() => console.log("MongoDB connected! "))
   .catch((err) => console.error("DB Error:", err));
 
 // --- RESOURCE DATA MODEL ---
@@ -84,7 +82,6 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // --- RESOURCE ROUTES ---
-// Is line mein koi extra middleware nahi hona chahiye
 app.get('/api/resources', async (req, res) => {
     try {
         const resources = await Resource.find().populate('owner', 'email');
@@ -94,15 +91,14 @@ app.get('/api/resources', async (req, res) => {
     }
 });
 
-// 🚀 ADD NEW RESOURCE (Cloudinary Support)
+// ADD NEW RESOURCE 
 app.post('/api/add', upload.single('pdfFile'), async (req, res) => {
     try {
         const { title, type, desc, link, ownerId } = req.body;
         
-        // Agar file upload hui hai toh Cloudinary ka URL use hoga, warna manual link
         let finalLink = link;
         if (req.file) {
-            finalLink = req.file.path; // Cloudinary automatically https link deta hai
+            finalLink = req.file.path; 
         }
 
         const newData = new Resource({
